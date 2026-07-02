@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +39,48 @@ export default function LogScreen() {
   const [distance, setDistance] = useState('');
   const [difficulty, setDifficulty] = useState(null);
   const [expectedXp, setExpectedXp] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const validate = () => {
+    const newErrors = {};
+    if (!activityName.trim()) {
+      newErrors.activityName = 'Activity name is required.';
+    }
+    if (!activityType) {
+      newErrors.activityType = 'Please select an activity type.';
+    }
+    const parsedDistance = parseFloat(distance);
+    if (!distance.trim() || isNaN(parsedDistance) || parsedDistance <= 0) {
+      newErrors.distance = 'Please enter a valid distance greater than 0.';
+    }
+    if (!difficulty) {
+      newErrors.difficulty = 'Please select a difficulty level.';
+    }
+    return newErrors;
+  };
+
+  const isFormValid = () => {
+    return Object.keys(validate()).length === 0;
+  };
+
+  const handleSubmit = () => {
+    setSubmitted(true);
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      Alert.alert('Incomplete Form', 'Please fill in all required fields.');
+      return;
+    }
+    setErrors({});
+    // TODO: handle successful submission
+  };
+
+  useEffect(() => {
+    if (submitted) {
+      setErrors(validate());
+    }
+  }, [activityName, activityType, distance, difficulty]);
 
   useEffect(() => {
     if (!difficulty || !XP_RULES[difficulty]) {
@@ -73,12 +116,15 @@ export default function LogScreen() {
       <View style={styles.section}>
         <Text style={styles.label}>Activity Name</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.activityName && styles.inputError]}
           placeholder="e.g. Sunrise ridge hike"
           placeholderTextColor={colors.textMuted || '#6b7280'}
           value={activityName}
           onChangeText={setActivityName}
         />
+        {errors.activityName && (
+          <Text style={styles.errorText}>{errors.activityName}</Text>
+        )}
       </View>
 
       {/* Activity Type */}
@@ -106,19 +152,25 @@ export default function LogScreen() {
             );
           })}
         </View>
+        {errors.activityType && (
+          <Text style={styles.errorText}>{errors.activityType}</Text>
+        )}
       </View>
 
       {/* Distance */}
       <View style={styles.section}>
         <Text style={styles.label}>Distance (km)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.distance && styles.inputError]}
           placeholder="0.0"
           placeholderTextColor={colors.textMuted || '#6b7280'}
           keyboardType="numeric"
           value={distance}
           onChangeText={setDistance}
         />
+        {errors.distance && (
+          <Text style={styles.errorText}>{errors.distance}</Text>
+        )}
       </View>
 
       {/* Difficulty */}
@@ -153,6 +205,9 @@ export default function LogScreen() {
             {DIFFICULTY_LABELS[difficulty]}
           </Text>
         )}
+        {errors.difficulty && (
+          <Text style={styles.errorText}>{errors.difficulty}</Text>
+        )}
       </View>
 
       {/* Expected XP Card */}
@@ -173,7 +228,10 @@ export default function LogScreen() {
       </View>
 
       {/* Submit Button */}
-      <TouchableOpacity style={styles.submitButton}>
+      <TouchableOpacity
+        style={[styles.submitButton, !isFormValid() && styles.submitButtonDisabled]}
+        onPress={handleSubmit}
+      >
         <Text style={styles.submitButtonText}>✓  Log Adventure</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -340,5 +398,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+  },
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  errorText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
   },
 });
