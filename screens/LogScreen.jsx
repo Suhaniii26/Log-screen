@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -64,7 +65,17 @@ export default function LogScreen() {
     return Object.keys(validate()).length === 0;
   };
 
-  const handleSubmit = () => {
+  const resetForm = () => {
+    setActivityName('');
+    setActivityType(null);
+    setDistance('');
+    setDifficulty(null);
+    setExpectedXp(null);
+    setErrors({});
+    setSubmitted(false);
+  };
+
+  const handleSubmit = async () => {
     setSubmitted(true);
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
@@ -73,7 +84,43 @@ export default function LogScreen() {
       return;
     }
     setErrors({});
-    // TODO: handle successful submission
+
+    try {
+      const earnedXp = expectedXp ?? XP_RULES[difficulty].base;
+      const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+
+      // --- 1. Save adventure ---
+      const adventuresRaw = await AsyncStorage.getItem('@travelgram/adventures');
+      const adventures = adventuresRaw ? JSON.parse(adventuresRaw) : [];
+
+      const newAdventure = {
+        name: activityName.trim(),
+        type: activityType,
+        distance: parseFloat(distance),
+        difficulty,
+        xp: earnedXp,
+        date: today,
+      };
+
+      adventures.push(newAdventure);
+      await AsyncStorage.setItem('@travelgram/adventures', JSON.stringify(adventures));
+
+      // --- 2. Update user totalXP ---
+      const userRaw = await AsyncStorage.getItem('@travelgram/user');
+      const user = userRaw ? JSON.parse(userRaw) : { username: '', totalXP: 0 };
+      user.totalXP = (user.totalXP || 0) + earnedXp;
+      await AsyncStorage.setItem('@travelgram/user', JSON.stringify(user));
+
+      // --- 3. Success alert then clear form ---
+      Alert.alert(
+        'Adventure Logged! 🎉',
+        `You earned ${earnedXp} XP 🎉`,
+        [{ text: 'Awesome!', onPress: resetForm }]
+      );
+    } catch (e) {
+      Alert.alert('Error', 'Something went wrong while saving. Please try again.');
+      console.error('@travelgram save error:', e);
+    }
   };
 
   useEffect(() => {
