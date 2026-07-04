@@ -1,12 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Keyboard,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
+  Vibration,
   View,
 } from 'react-native';
 const colors = { textMuted: '#6b7280' };
@@ -42,6 +46,7 @@ export default function LogScreen() {
   const [expectedXp, setExpectedXp] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const validate = () => {
     const newErrors = {};
@@ -84,6 +89,7 @@ export default function LogScreen() {
       return;
     }
     setErrors({});
+    setIsSaving(true);
 
     try {
       const earnedXp = expectedXp ?? XP_RULES[difficulty].base;
@@ -111,7 +117,8 @@ export default function LogScreen() {
       user.totalXP = (user.totalXP || 0) + earnedXp;
       await AsyncStorage.setItem('@travelgram/user', JSON.stringify(user));
 
-      // --- 3. Success alert then clear form ---
+      // --- 3. Vibrate + success alert then clear form ---
+      Vibration.vibrate(100);
       Alert.alert(
         'Adventure Logged! 🎉',
         `You earned ${earnedXp} XP 🎉`,
@@ -120,6 +127,8 @@ export default function LogScreen() {
     } catch (e) {
       Alert.alert('Error', 'Something went wrong while saving. Please try again.');
       console.error('@travelgram save error:', e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -147,9 +156,11 @@ export default function LogScreen() {
   }, [difficulty, distance]);
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
     >
       {/* Header */}
       <View style={styles.header}>
@@ -276,12 +287,21 @@ export default function LogScreen() {
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, !isFormValid() && styles.submitButtonDisabled]}
+        style={[
+          styles.submitButton,
+          (!isFormValid() || isSaving) && styles.submitButtonDisabled,
+        ]}
         onPress={handleSubmit}
+        disabled={isSaving}
       >
-        <Text style={styles.submitButtonText}>✓  Log Adventure</Text>
+        {isSaving ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <Text style={styles.submitButtonText}>✓  Log Adventure</Text>
+        )}
       </TouchableOpacity>
     </ScrollView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -308,7 +328,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   section: {
-    marginBottom: 22,
+    marginBottom: 20,
   },
   label: {
     fontSize: 13,
@@ -390,9 +410,10 @@ const styles = StyleSheet.create({
   difficultyText: {
     marginTop: 10,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    fontWeight: '700',
+    color: '#FF6B35',
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   xpCard: {
     backgroundColor: '#1a1d27',
@@ -435,11 +456,12 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#FF6B35',
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
+    width: '100%',
   },
   submitButtonText: {
     fontSize: 16,
